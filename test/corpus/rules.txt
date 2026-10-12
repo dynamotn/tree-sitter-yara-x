@@ -1,0 +1,533 @@
+================================================================================
+Imports and includes
+================================================================================
+
+import "pe"
+include "../common.yar"
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (import
+    (text_string))
+  (include
+    (text_string)))
+
+================================================================================
+Rule modifiers and tags
+================================================================================
+
+private global rule a : t1 t2 { condition: true }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (rule
+    (rule_modifier)
+    (rule_modifier)
+    (identifier)
+    (tag_list
+      (tag)
+      (tag))
+    (condition_section
+      (boolean))))
+
+================================================================================
+Meta values
+================================================================================
+
+rule a {
+  meta:
+    s = "x\"y"
+    n = -1
+    f = 0.5
+    b = false
+  condition:
+    true
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (rule
+    (identifier)
+    (meta_section
+      (meta_definition
+        (identifier)
+        (text_string
+          (escape_sequence)))
+      (meta_definition
+        (identifier)
+        (integer))
+      (meta_definition
+        (identifier)
+        (float))
+      (meta_definition
+        (identifier)
+        (boolean)))
+    (condition_section
+      (boolean))))
+
+================================================================================
+Text strings and modifiers
+================================================================================
+
+rule a {
+  strings:
+    $a = "foo" ascii wide nocase fullword private
+    $b = "k" xor xor(1) xor(1-255)
+    $c = "k" base64 base64wide("abc")
+    $ = "anonymous\x00"
+  condition:
+    any of them
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (rule
+    (identifier)
+    (strings_section
+      (string_definition
+        (string_identifier)
+        (text_string)
+        (string_modifier)
+        (string_modifier)
+        (string_modifier)
+        (string_modifier)
+        (string_modifier))
+      (string_definition
+        (string_identifier)
+        (text_string)
+        (string_modifier)
+        (string_modifier
+          (integer))
+        (string_modifier
+          (integer)
+          (integer)))
+      (string_definition
+        (string_identifier)
+        (text_string)
+        (string_modifier)
+        (string_modifier
+          (text_string)))
+      (string_definition
+        (string_identifier)
+        (text_string
+          (escape_sequence))))
+    (condition_section
+      (of_expression
+        (quantifier)
+        (string_set)))))
+
+================================================================================
+Hex strings
+================================================================================
+
+rule a {
+  strings:
+    $h = { 4D 5A ?? ?A 5? ~00 ~?F [4] [2-4] [2-] [-] ( 90 | EB ?? | 31 C0 ) // nop
+    }
+  condition:
+    $h
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (rule
+    (identifier)
+    (strings_section
+      (string_definition
+        (string_identifier)
+        (hex_string
+          (hex_byte)
+          (hex_byte)
+          (hex_byte)
+          (hex_byte)
+          (hex_byte)
+          (hex_byte)
+          (hex_byte)
+          (hex_jump
+            (integer))
+          (hex_jump
+            (integer)
+            (integer))
+          (hex_jump
+            (integer))
+          (hex_jump)
+          (hex_alternative
+            (hex_byte)
+            (hex_byte)
+            (hex_byte)
+            (hex_byte)
+            (hex_byte))
+          (comment))))
+    (condition_section
+      (string_identifier))))
+
+================================================================================
+Regular expressions
+================================================================================
+
+rule a {
+  strings:
+    $r = /https?:\/\/[a-z\/]+\.php/is
+  condition:
+    $r and pe.dll_name matches /^a.b$/
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (rule
+    (identifier)
+    (strings_section
+      (string_definition
+        (string_identifier)
+        (regex
+          (regex_pattern)
+          (regex_flags))))
+    (condition_section
+      (binary_expression
+        (string_identifier)
+        (binary_expression
+          (member_expression
+            (identifier)
+            (identifier))
+          (regex
+            (regex_pattern)))))))
+
+================================================================================
+Operator precedence
+================================================================================
+
+rule a { condition: not 1 + 2 * 3 == 7 and 1 | 2 ^ 3 & 4 << 1 or -filesize \ 2 % 3 != ~0 }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (rule
+    (identifier)
+    (condition_section
+      (binary_expression
+        (binary_expression
+          (unary_expression
+            (binary_expression
+              (binary_expression
+                (integer)
+                (binary_expression
+                  (integer)
+                  (integer)))
+              (integer)))
+          (binary_expression
+            (integer)
+            (binary_expression
+              (integer)
+              (binary_expression
+                (integer)
+                (binary_expression
+                  (integer)
+                  (integer))))))
+        (binary_expression
+          (binary_expression
+            (binary_expression
+              (unary_expression
+                (filesize))
+              (integer))
+            (integer))
+          (unary_expression
+            (integer)))))))
+
+================================================================================
+String operators
+================================================================================
+
+rule a { condition: "a" contains "b" and "a" icontains "b" and "a" startswith "b" and "a" iendswith "b" and "a" iequals "b" }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (rule
+    (identifier)
+    (condition_section
+      (binary_expression
+        (binary_expression
+          (binary_expression
+            (binary_expression
+              (binary_expression
+                (text_string)
+                (text_string))
+              (binary_expression
+                (text_string)
+                (text_string)))
+            (binary_expression
+              (text_string)
+              (text_string)))
+          (binary_expression
+            (text_string)
+            (text_string)))
+        (binary_expression
+          (text_string)
+          (text_string))))))
+
+================================================================================
+String references
+================================================================================
+
+rule a { condition: $a at 0 and $a in (0..100) and #a in (0..filesize) > 2 and @a[1] < 10 and !a[2] == 3 and @a and !a }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (rule
+    (identifier)
+    (condition_section
+      (binary_expression
+        (binary_expression
+          (binary_expression
+            (binary_expression
+              (binary_expression
+                (binary_expression
+                  (string_match
+                    (string_identifier)
+                    (integer))
+                  (string_match
+                    (string_identifier)
+                    (range
+                      (integer)
+                      (integer))))
+                (binary_expression
+                  (string_count
+                    (string_count_identifier)
+                    (range
+                      (integer)
+                      (filesize)))
+                  (integer)))
+              (binary_expression
+                (string_offset
+                  (string_offset_identifier)
+                  (integer))
+                (integer)))
+            (binary_expression
+              (string_length
+                (string_length_identifier)
+                (integer))
+              (integer)))
+          (string_offset
+            (string_offset_identifier)))
+        (string_length
+          (string_length_identifier))))))
+
+================================================================================
+Numbers
+================================================================================
+
+rule a { condition: filesize < 2MB and 0x10 == 0o20 and 16KB > 1.5 }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (rule
+    (identifier)
+    (condition_section
+      (binary_expression
+        (binary_expression
+          (binary_expression
+            (filesize)
+            (integer))
+          (binary_expression
+            (integer)
+            (integer)))
+        (binary_expression
+          (integer)
+          (float))))))
+
+================================================================================
+Of expressions
+================================================================================
+
+rule a { condition: all of them and none of ($a, $b*) and 2 of ($a*) at 0 and 50% of them in (0..10) and any of (r1, r*) }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (rule
+    (identifier)
+    (condition_section
+      (binary_expression
+        (binary_expression
+          (binary_expression
+            (binary_expression
+              (of_expression
+                (quantifier)
+                (string_set))
+              (of_expression
+                (quantifier)
+                (string_set
+                  (string_identifier)
+                  (string_wildcard))))
+            (of_expression
+              (quantifier
+                (integer))
+              (string_set
+                (string_wildcard))
+              (integer)))
+          (of_expression
+            (quantifier
+              (percentage))
+            (string_set)
+            (range
+              (integer)
+              (integer))))
+        (of_expression
+          (quantifier)
+          (rule_set
+            (identifier)
+            (rule_wildcard)))))))
+
+================================================================================
+For expressions
+================================================================================
+
+rule a { condition: for any of ($a*) : ($ at entrypoint) and for all i in (1..#a) : (@a[i] < 100) and for any k, v in pe.version_info : (k == "x") and for 2 i in (1, 2, 3) : (i > 1) }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (rule
+    (identifier)
+    (condition_section
+      (binary_expression
+        (binary_expression
+          (binary_expression
+            (for_expression
+              (quantifier)
+              (string_set
+                (string_wildcard))
+              (string_match
+                (string_identifier)
+                (entrypoint)))
+            (for_expression
+              (quantifier)
+              (identifier)
+              (range
+                (integer)
+                (string_count
+                  (string_count_identifier)))
+              (binary_expression
+                (string_offset
+                  (string_offset_identifier)
+                  (identifier))
+                (integer))))
+          (for_expression
+            (quantifier)
+            (identifier)
+            (identifier)
+            (member_expression
+              (identifier)
+              (identifier))
+            (binary_expression
+              (identifier)
+              (text_string))))
+        (for_expression
+          (quantifier
+            (integer))
+          (identifier)
+          (enumeration
+            (integer)
+            (integer)
+            (integer))
+          (binary_expression
+            (identifier)
+            (integer)))))))
+
+================================================================================
+With and defined
+================================================================================
+
+rule a { condition: with n = #a, m = filesize : (n < m) and defined pe.number_of_sections }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (rule
+    (identifier)
+    (condition_section
+      (binary_expression
+        (with_expression
+          (with_declaration
+            (identifier)
+            (string_count
+              (string_count_identifier)))
+          (with_declaration
+            (identifier)
+            (filesize))
+          (binary_expression
+            (identifier)
+            (identifier)))
+        (unary_expression
+          (member_expression
+            (identifier)
+            (identifier)))))))
+
+================================================================================
+Modules
+================================================================================
+
+rule a { condition: pe.sections[0].name == ".text" and math.entropy(0, filesize) > 7.0 and uint16(0) == 0x5A4D }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (rule
+    (identifier)
+    (condition_section
+      (binary_expression
+        (binary_expression
+          (binary_expression
+            (member_expression
+              (subscript_expression
+                (member_expression
+                  (identifier)
+                  (identifier))
+                (integer))
+              (identifier))
+            (text_string))
+          (binary_expression
+            (call_expression
+              (member_expression
+                (identifier)
+                (identifier))
+              (arguments
+                (integer)
+                (filesize)))
+            (float)))
+        (binary_expression
+          (call_expression
+            (identifier)
+            (arguments
+              (integer)))
+          (integer))))))
+
+================================================================================
+Comments
+================================================================================
+
+/* block
+ * comment */
+// line
+rule a { /* inside */ condition: true // end
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (comment)
+  (rule
+    (identifier)
+    (comment)
+    (condition_section
+      (boolean))
+    (comment)))
